@@ -1,0 +1,306 @@
+---
+title: "Movie recommendation"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("tidyverse")
+library(tidyverse)
+library(caret)
+library(readxl)
+library(tidyr)
+library(reshape2)
+```
+#transform
+```{r}
+#data<-read_xlsx("HW4_Data.xlsx")
+#data<-data[(1:98),]
+#data<-read_xlsx("HW4_Data(stacked).xlsx") #with data from last cohort 
+data<-read_xlsx("with amy data.xlsx") #with amy's new rating
+n<-nrow(data) #no shachi amy 
+data_raw<-data[-(2:5)]
+data_1<-data_raw
+#data_1[is.na(data_1)] <- 0
+data_g<-gather(data_raw,key = "Movie",value="Rating",-"Serial Number",na.rm = TRUE)
+data_g$`Serial Number`<-factor(data_g$`Serial Number`)
+
+```
+#split training and test on gathered data
+```{r}
+#####
+smp_size <- floor(0.8 * nrow(data_g))
+
+## set the seed to make your partition reproducible
+set.seed(223)
+train_n <- sample(seq_len(nrow(data_g)), size = smp_size)
+
+train <- data_g[train_n, ]
+test <- data_g[-train_n, ]
+```
+
+```{r}
+#install.packages("lsa")
+#library(lsa)
+#install.packages("recommenderlab")
+library(recommenderlab)
+data_m<-as.matrix(data_1[-1])
+
+Realrating <- as(`data_m`, "realRatingMatrix")
+
+summary(getRatings(Realrating))
+```
+#prepare data for training 
+```{r}
+train_proportion <- .75
+items_per_test_user_keep=10
+set.seed(223)
+model_train_scheme <- Realrating %>%
+  evaluationScheme(method = 'cross-validation', 
+                   train = train_proportion, # proportion of rows to train.
+                   given = 1, 
+                   goodRating = NA, # for binary classifier analysis.
+                   k = 5)
+```
+#model 1: UBCF_no normalization
+```{r}
+model_params1 <- list(method = "cosine",
+                     nn = 10, # find each user's 10 most similar users.
+                     sample = FALSE, 
+                     normalize=NULL)
+
+model1 <- getData(model_train_scheme, "train") %>% #fit on the 75% training data.
+  Recommender(method = "UBCF", parameter = model_params1)
+
+model1_pred <- predict(model1, getData(model_train_scheme,"known"), type = "ratings")
+test1<-as(model1_pred,'matrix')
+```
+
+#model 2 : UBCF_center
+```{r}
+model_params2 <- list(method = "cosine",
+                     nn = 10, # find each user's 10 most similar users.
+                     sample = FALSE, # already did this. 
+                     normalize="center")
+
+model2 <- getData(model_train_scheme, "train") %>% #fit on the 75% training data.
+  Recommender(method = "UBCF", parameter = model_params2)
+
+model2_pred <- predict(model2, getData(model_train_scheme,"known"), type = "ratings")
+test2<-as(model2_pred,'matrix')
+```
+
+#model 3 : UBCF_cosine_zscore
+```{r}
+model_params3 <- list(method = "cosine",
+                     nn = 10, # find each user's 10 most similar users.
+                     sample = FALSE, # already did this. 
+                     normalize="z-score"
+                     )
+
+model3 <- getData(model_train_scheme, "train") %>% #only fit on the 75% training data.
+  Recommender(method = "UBCF", parameter = model_params3)
+
+model3_pred <- predict(model3, getData(model_train_scheme,"known"), type = "ratings")
+test3<-as(model3_pred,'matrix')
+```
+
+
+#Model4_IBCF_cosine_null
+```{r}
+model_params4 <- list(method = "Cosine",
+                      normalize = NULL
+                     )
+
+model4 <- getData(model_train_scheme, "train") %>% #only fit on the 75% training data.
+  Recommender(method = "IBCF", parameter = model_params4)
+
+#rec=Recommender(r[1:nrow(r)],method="IBCF", param=list(normalize = "Z-score",method="Jaccard",minRating=1))
+
+model4_pred <- predict(model4, getData(model_train_scheme,"known"), type = "ratingMatrix")
+test4<-as(model4_pred,'matrix')
+
+```
+##Model 5 IBSF - cosine - center
+```{r}
+model_params5 <- list(method = "cosine",
+                     normalize="center"
+                     )
+
+model5 <- getData(model_train_scheme, "train") %>% #only fit on the 75% training data.
+  Recommender(method = "IBCF", parameter = model_params5)
+
+model5_pred <- predict(model5, getData(model_train_scheme,"known"), type = "ratings")
+test5<-as(model5_pred,'matrix')
+```
+##Model 6 IBSF - cosine - z score
+```{r}
+model_params6 <- list(method = "cosine",
+                     normalize="z-score"
+                     )
+
+model6 <- getData(model_train_scheme, "train") %>% #only fit on the 75% training data.
+  Recommender(method = "IBCF", parameter = model_params6)
+
+model6_pred <- predict(model6, getData(model_train_scheme,"known"), type = "ratings")
+test6<-as(model6_pred,'matrix')
+```
+
+
+
+
+#predict
+```{r}
+image(data_m,main="Raw Rating")
+image(test2_complete,main="Normalized Rating")
+image(biased,main="Normalized Rating")
+```
+#evaluation 
+```{r}
+
+ error <- rbind( UBCF_null = calcPredictionAccuracy(model1_pred, getData(model_train_scheme, "unknown")),
+                 UBCF_center = calcPredictionAccuracy(model2_pred, getData(model_train_scheme, "unknown")),
+                 UBCF_zcore = calcPredictionAccuracy(model3_pred, getData(model_train_scheme, "unknown")),
+                 IBCF_null = calcPredictionAccuracy(model4_pred, getData(model_train_scheme, "unknown")),
+                 IBCF_center = calcPredictionAccuracy(model5_pred, getData(model_train_scheme, "unknown")),
+                 IBCF_zscore = calcPredictionAccuracy(model6_pred, getData(model_train_scheme, "unknown"))
+     
+)
+
+error
+```
+
+#SO user based collaborative filtering with centered normalization is the best. 
+
+
+##biase package
+```{r}
+#install.packages("glmnet")
+library(glmnet)
+#library(questionr)
+```
+#calculate bias
+```{r}
+x_train<-model.matrix(Rating~.,data_g)[,-1]
+y<-data_g$Rating
+
+####
+fit_ridge_cv = cv.glmnet(x=x_train, y=y, alpha = 1)
+allb<-coef(fit_ridge_cv) #all bias coefficience
+bench_rating<-allb[1,1] #the benchmark rating 
+
+user_b<-allb[2:n,] #get rid of intercept
+user_id_chr<-names(user_b)
+user_id<-as.numeric(substring(user_id_chr,16,length(user_id_chr)))
+user_b_v<-unname(user_b)
+
+item_b<-allb[-(1:n),]#get rid of intercept
+length(item_b)
+item_id_chr<-names(item_b)
+item_i_v<-unname(item_b)
+#plot(fit_ridge_cv)
+
+user_bias<-rbind(c(1,0),cbind(user_id,user_b_v))
+item_bias<-cbind(item_id_chr,item_i_v)
+
+hist(user_b_v,nclass = 30)
+hist(item_i_v,nclass = 30)
+n
+```
+```{r}
+hist(user_b_v,main = "relative user bias away from benchmark(4.12)",xlab = "relative user bias")
+```
+
+
+
+
+
+#unbaised rating 
+```{r}
+m_row<-match(substring(item_bias[,1],6,nchar(item_bias[,1])),colnames(data_1[-1]))
+movie_bias = data.frame(movie= colnames(data_1[-1]),rating =0)
+movie_bias[m_row,2] = item_i_v
+unbiased= t(t(data_1[-1]-user_b_v- bench_rating)-movie_bias$rating)
+ 
+#dim(data_1)
+#length(item_i_v)
+```
+
+
+
+#new model 7 - using new unbiased data 
+```{r}
+Realrating2 <- as(unbiased, "realRatingMatrix")
+summary(getRatings(Realrating2))
+train_proportion <- .75
+#min(rowCounts(Realrating))
+items_per_test_user_keep=10
+set.seed(223)
+model_train_scheme2 <- Realrating2 %>%
+  evaluationScheme(method = 'cross-validation', # OR single train/test split
+                   train = train_proportion, # proportion of rows to train.
+                   given = 1, # shouldn't keep n rec. items > min(rowCounts(movie_r))
+                   goodRating = NA, # for binary classifier analysis.
+                   k = 5)
+
+model_params7 <- list(method = "cosine",
+                     nn = 10, # find each user's 10 most similar users.
+                     sample = FALSE, # already did this. 
+                     normalize="center"
+                     )
+
+model7 <- getData(model_train_scheme2, "train") %>% #only fit on the 75% training data.
+  Recommender(method = "UBCF", parameter = model_params7)
+
+```
+
+
+#model 7 and 2 , the two best model  error compare 
+```{r}
+
+model7_pred_complete <- predict(model7, Realrating2, type = "ratingMatrix")
+test7<-as(model7_pred_complete,'matrix')
+biased= t(t(test7+user_bias[,2]+ bench_rating)+movie_bias$rating)
+
+
+rmse_model7<-RMSE(
+  true =as.matrix(data_1[-1],ncol=50),
+  predicted = matrix(biased,ncol=50),
+  na.rm = TRUE)
+
+model2_pred_complete <- predict(model2, Realrating, type = "ratingMatrix")
+test2_complete<-as(model2_pred_complete,'matrix')
+
+rmse_model2<-RMSE(
+  true =as.matrix(data_1[-1],ncol=50),
+  predicted = matrix(test2_complete,ncol=50),
+  na.rm = TRUE)
+
+
+ error2 <- rbind(UBCF_center = rmse_model2,
+                 new_center= rmse_model7)
+colnames(error2)="RMSE"
+error2
+```
+#conclusion: use UBCF - centered 
+
+#q1
+```{r}
+biased_df<-data.frame(biased)
+tmp<-matrix(c(biased_df$La.La.Land,biased_df$Inception,biased_df$The.Wolf.of.Wall.Street),ncol=3)
+
+UCBF<-data.frame(test2_complete)
+tmp<-matrix(c(UCBF$La.La.Land,UCBF$Inception,UCBF$The.Wolf.of.Wall.Street),ncol=3)
+
+cbind(biased_df$Avatar,biased_df$The.Wolf.of.Wall.Street,biased_df$Inception)
+biased_df$The.Wolf.of.Wall.Street
+#below to export the complete rating scores
+#write.csv(biased_df,file = "biased2.csv")
+#write.csv(UCBF,file = "ucbf2.csv")
+
+```
+
+
