@@ -15,6 +15,13 @@ On the evaluation side, apart from error rate, we could also use Mean Average Pr
 The main package we use is 'recommenderlab' of which the documentation is attached too. 
 The following is the common way of using it: 
 ```
+model_train_scheme <- Realrating %>%
+  evaluationScheme(method = 'cross-validation', 
+                   train = train_proportion, # proportion of rows to train.
+                   given = 1, 
+                   goodRating = NA, # for binary classifier analysis.
+                   k = 5)
+                   
 model_params1 <- list(method = "cosine",
                      nn = 10, # find each user's 10 most similar users.
                      sample = FALSE, 
