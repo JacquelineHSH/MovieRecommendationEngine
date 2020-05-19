@@ -36,7 +36,7 @@ We built several neighborhood models with different specifications on two approa
 
 As a result, we found that user-based collaborative filtering **normalized** by centered mean (referred to as “UBCF_center”) has the lowest error rate. However, although such an approach is the best for predicting existing users, it can go far off for new users with no information. Under such circumstances, we will need user bias and movie bias.
 
-The **regularized regression** is used here to compute all the user bias and movie bias, therefore generating an unbiased rating dataset to feed the UBCF_center model. But the error rate (RMSE) of the new version(referred to as “bias_remove model”) is still higher than the previous UBCF_center model. Therefore, we will use the more accurate, the UBCF_center model and only use our bias_remove model for new users/movie cases. 
+The **regularized regression** is used here to compute all the user bias and movie bias, therefore generating an unbiased rating dataset to feed the UBCF_center model. But **the error rate (RMSE)** of the new version(referred to as “bias_remove model”) is still higher than the previous UBCF_center model. Therefore, we will use the more accurate, the UBCF_center model and only use our bias_remove model for new users/movie cases. 
 
 ## WHAT'S MORE 
 The value of our recommendation system extends beyond the movie sector. For example, our model could help online wholesale companies predict the bulk buying quantities based on the characteristics of each retailer. It may also help white labeling companies to predict user activities and avoid over-stocking. 
