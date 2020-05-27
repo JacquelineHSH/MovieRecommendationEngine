@@ -1,5 +1,5 @@
 # MovieRecommendationEngine
-Conducted user-based collaborative filtering in R and supplemented with regularized regression to compute user/movie bias for targets with no history data
+Conducted **user-based collaborative filtering** in R and supplemented with **regularized regression** to compute user/movie bias for targets with no history data
 
 ## SUMMARY 
 Our team simulated the **Netflix recommendation algorithm** (not the most current) to predict movie ratings with information gathered from all the UCD MSBA students. After thorough comparison, we chose **user-based collaborative filtering** normalized by centered mean. However, for new users/movies that we have no existing information on, we supplement it with **regularized regression** which can **calculate user/movie bias separately**, and use them for estimation. 
